@@ -10,6 +10,8 @@ main { max-width: 640px; margin: 0 auto; padding: 16px;
   padding-left: max(16px, env(safe-area-inset-left));
   padding-right: max(16px, env(safe-area-inset-right)); }
 /* 16px+ stops iOS Safari from zooming the page when the field is focused */
+[hidden] { display: none !important; }
+.name-input { display: block; width: 100%; font-size: 1.4rem !important; padding: 18px !important; margin: 14px 0; }
 input { font: inherit; font-size: 16px; color: var(--fg); background: var(--card);
   border: 1px solid #334155; border-radius: 10px; padding: 12px; max-width: 100%; }
 h1, h2 { margin: .3em 0; }

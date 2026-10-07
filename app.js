@@ -87,9 +87,16 @@
 
   // --- cloud sync (optional; see sync.js) -----------------------------------
   let syncMsg = '';
+  let syncGaveUp = false; // sync.js never loaded (offline / blocked): fall back to local-only
   function renderAuth() {
     const el = $('#auth');
     el.textContent = '';
+    // Until a name is entered, show only the name prompt (no start button, status or history).
+    // While the sync module is still loading we hold off too, so the start button never flashes up.
+    const loading = !window.Sync && !syncGaveUp;
+    const needName = loading || (!!window.Sync && !Sync.name());
+    for (const id of ['#start', '#status', '#histRow']) $(id).hidden = needName;
+    if (loading) return;
     if (!window.Sync) { el.textContent = 'Cloud sync unavailable (using this device only).'; return; }
     const name = Sync.name();
     $('#start').disabled = !name; // a name is required before starting (syncs automatically)
@@ -104,18 +111,20 @@
       el.append('Enter a name to get started. Use the same name on other devices to share your history.');
       el.append(document.createElement('br'));
       const input = document.createElement('input');
+      input.className = 'name-input';
       input.placeholder = 'Your name';
       input.maxLength = 32;
       input.autocapitalize = 'none';
+      input.autocomplete = 'off';
       const btn = document.createElement('button');
-      btn.className = 'primary';
+      btn.className = 'primary big-btn';
       btn.textContent = 'Continue';
       btn.onclick = () => {
         try { Sync.setName(input.value); } catch (e) { $('#notice').textContent = e.message; return; }
         syncNow();
       };
       input.onkeydown = (e) => { if (e.key === 'Enter') btn.click(); };
-      el.append(input, ' ', btn);
+      el.append(input, btn);
     }
   }
 
@@ -241,5 +250,9 @@
     renderHistory();
   };
   renderHome();
-  if (window.Sync) syncNow(); else addEventListener('sync-ready', syncNow, { once: true });
+  if (window.Sync) syncNow();
+  else {
+    addEventListener('sync-ready', syncNow, { once: true });
+    setTimeout(() => { if (!window.Sync) { syncGaveUp = true; renderAuth(); } }, 4000);
+  }
 })();
