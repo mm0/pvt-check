@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Alertness Check</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <section id="home">
+      <h1>Alertness Check</h1>
+      <p class="muted">A 2-minute self-check against <em>your own</em> rested baseline.</p>
+      <div id="status" class="card"></div>
+      <button class="primary big-btn" id="start">Start check</button>
+      <div class="row">
+        <button id="showHistory">History</button>
+      </div>
+      <p id="notice" class="notice"></p>
+    </section>
+
+    <section id="test" hidden>
+      <div id="hud" class="hud"></div>
+      <div id="stage" class="stage idle"></div>
+    </section>
+
+    <section id="result" hidden>
+      <div id="resultBody"></div>
+      <button class="primary big-btn" id="resultDone">Done</button>
+    </section>
+
+    <section id="history" hidden>
+      <h2>History</h2>
+      <div id="chart" class="card"></div>
+      <div id="table" class="card"></div>
+      <div class="row">
+        <button id="exportCsv">Export CSV</button>
+        <button id="reset" class="danger">Reset all data</button>
+        <button id="historyBack">Back</button>
+      </div>
+    </section>
+  </main>
+  <footer>Self-check only. Not a medical or safety-grade assessment. Don't rely on it to decide whether it's safe to drive or operate machinery.</footer>
+  <script src="tests.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

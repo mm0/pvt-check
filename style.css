@@ -1,0 +1,44 @@
+:root {
+  --bg: #0f172a; --card: #1e293b; --fg: #e2e8f0; --muted: #94a3b8;
+  --accent: #38bdf8; --ok: #22c55e; --warn: #eab308; --bad: #ef4444;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 16px/1.4 system-ui, -apple-system, sans-serif; }
+main { max-width: 640px; margin: 0 auto; padding: 16px; padding-top: max(16px, env(safe-area-inset-top)); }
+h1, h2 { margin: .3em 0; }
+.muted { color: var(--muted); }
+.card { background: var(--card); border-radius: 12px; padding: 14px; margin: 12px 0; overflow-x: auto; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+button { font: inherit; color: var(--fg); background: var(--card); border: 1px solid #334155;
+  border-radius: 10px; padding: 12px 16px; touch-action: manipulation; cursor: pointer; }
+button.primary { background: var(--accent); color: #082f49; border: 0; font-weight: 600; }
+button.danger { color: var(--bad); }
+.big-btn { width: 100%; padding: 18px; font-size: 1.2rem; }
+.notice { color: var(--warn); min-height: 1.4em; }
+footer { max-width: 640px; margin: 0 auto; padding: 16px; color: var(--muted); font-size: .8rem; }
+
+.hud { color: var(--muted); margin-bottom: 8px; text-align: center; }
+.stage { min-height: 65vh; border-radius: 16px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; padding: 16px;
+  user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.stage.idle { background: var(--card); }
+.stage.wait { background: #1e3a8a; }
+.stage.go { background: #15803d; }
+.stage.nogo { background: #b91c1c; }
+.stage.bad { background: #92400e; }
+.stage .big { font-size: 2.6rem; font-weight: 700; }
+.stage .small { color: #cbd5e1; margin-top: 6px; }
+.intro p { color: var(--muted); max-width: 30ch; margin: 12px auto 20px; }
+.word { font-size: 3.4rem; font-weight: 800; min-height: 1.3em; }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 360px; margin-top: 24px; }
+.btns button { padding: 20px 0; font-size: 1.1rem; text-transform: capitalize; }
+
+.badge { display: inline-block; padding: 6px 14px; border-radius: 999px; font-weight: 700; color: #0f172a; }
+.badge.sharp { background: var(--ok); }
+.badge.off { background: var(--warn); }
+.badge.impaired { background: var(--bad); }
+.badge.cal { background: var(--accent); }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { text-align: left; padding: 6px 4px; border-bottom: 1px solid #334155; white-space: nowrap; }
+svg { width: 100%; height: auto; }
