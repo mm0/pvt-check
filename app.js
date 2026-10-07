@@ -165,7 +165,81 @@
       html += `<tr><td>${m.label}</td><td>${fmt(m, session.metrics[m.k])}</td>${base ? `<td>${fmt(m, base[m.k].med)}</td>` : ''}</tr>`;
     }
     $('#resultBody').innerHTML = html + '</table></div>';
+    const cur = (lastResult = { session, base, file: null });
+    drawResultCard(session, base).toBlob((blob) => {
+      if (blob) cur.file = new File([blob], 'alertness-check.png', { type: 'image/png' });
+    }, 'image/png');
     show('result');
+  }
+
+  // --- share result as an image (native share sheet where available) ------------
+  let lastResult = null; // { session, base, file }
+
+  function drawResultCard(session, base) {
+    const W = 800, P = 40, ROW = 38;
+    const H = 260 + METRICS.length * ROW + 70;
+    const c = document.createElement('canvas');
+    c.width = W * 2; c.height = H * 2;
+    const g = c.getContext('2d');
+    g.scale(2, 2);
+    const font = (w, s) => `${w} ${s}px system-ui, -apple-system, sans-serif`;
+    const rr = (x, y, w, h, r) => {
+      g.beginPath(); g.moveTo(x + r, y);
+      g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r);
+      g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath();
+    };
+    g.fillStyle = '#0f172a'; g.fillRect(0, 0, W, H);
+    g.fillStyle = '#e2e8f0'; g.font = font(700, 34); g.fillText('Alertness Check', P, 70);
+    g.fillStyle = '#94a3b8'; g.font = font(400, 20); g.fillText(new Date(session.ts).toLocaleString(), P, 102);
+
+    const b = session.calibration ? { text: 'Calibration', color: '#38bdf8' }
+      : { text: band(session.composite).text, color: { sharp: '#22c55e', off: '#eab308', impaired: '#ef4444' }[band(session.composite).cls] };
+    g.font = font(700, 28);
+    const bw = g.measureText(b.text).width + 48;
+    g.fillStyle = b.color; rr(P, 126, bw, 52, 26); g.fill();
+    g.fillStyle = '#0f172a'; g.fillText(b.text, P + 24, 162);
+    g.fillStyle = '#94a3b8'; g.font = font(400, 20);
+    g.fillText(session.calibration ? 'Calibration session (building your baseline)'
+      : `${session.composite.toFixed(2)} SD vs. your baseline`, P, 214);
+
+    g.font = font(600, 18); g.fillStyle = '#94a3b8';
+    g.fillText('METRIC', P, 256); g.fillText('NOW', 480, 256);
+    if (base) g.fillText('BASELINE', 630, 256);
+    g.font = font(400, 22);
+    METRICS.forEach((m, i) => {
+      const y = 256 + (i + 1) * ROW;
+      g.fillStyle = '#334155'; g.fillRect(P, y - ROW + 10, W - 2 * P, 1);
+      g.fillStyle = '#e2e8f0'; g.fillText(m.label, P, y);
+      g.fillText(fmt(m, session.metrics[m.k]), 480, y);
+      if (base) { g.fillStyle = '#94a3b8'; g.fillText(fmt(m, base[m.k].med), 630, y); }
+    });
+    g.fillStyle = '#94a3b8'; g.font = font(400, 16);
+    g.fillText('Self-check only. Not a medical or safety assessment.', P, H - 28);
+    return c;
+  }
+
+  async function shareResult() {
+    if (!lastResult) return;
+    const { session, base } = lastResult;
+    // Normally pre-rendered when the result was shown, so share() runs right inside the tap.
+    let file = lastResult.file;
+    if (!file) {
+      const blob = await new Promise((res) => drawResultCard(session, base).toBlob(res, 'image/png'));
+      file = new File([blob], 'alertness-check.png', { type: 'image/png' });
+    }
+    const text = session.calibration ? 'Alertness check (calibration)' : 'Alertness check: ' + band(session.composite).text;
+    try {
+      if (navigator.canShare && navigator.canShare({ files: [file] })) await navigator.share({ files: [file], text });
+      else if (navigator.share) await navigator.share({ text });
+      else throw new Error('no-share');
+    } catch (e) {
+      if (e.name === 'AbortError') return; // user closed the share sheet
+      const a = document.createElement('a'); // fall back to downloading the image
+      a.href = URL.createObjectURL(file);
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
   }
 
   function renderHistory() {
@@ -238,6 +312,7 @@
   document.addEventListener('visibilitychange', () => { if (document.hidden && running) Tests.abort(); });
   $('#start').onclick = runSession;
   $('#resultDone').onclick = () => renderHome();
+  $('#share').onclick = shareResult;
   $('#showHistory').onclick = renderHistory;
   $('#historyBack').onclick = () => renderHome();
   $('#exportCsv').onclick = exportCsv;
