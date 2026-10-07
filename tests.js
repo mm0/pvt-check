@@ -96,7 +96,7 @@
       if (isGo) tap ? rts.push(tap.t - t0) : omissions++;
       else if (tap) commissions++;
     }
-    return { gng_rt: median(rts), gng_err: omissions + commissions };
+    return { gng_rt: median(rts) ?? 800, gng_err: omissions + commissions };
   }
 
   // --- Stroop ---------------------------------------------------------------
@@ -126,7 +126,68 @@
       if (hit) rts.push(tap.t - t0);
       else errors++;
     }
-    return { stroop_rt: median(rts), stroop_err: errors };
+    return { stroop_rt: median(rts) ?? 3000, stroop_err: errors };
+  }
+
+  // --- Flanker (distractibility) ---------------------------------------------
+  async function flanker(ui) {
+    const N = 24;
+    ui.stage.className = 'stage idle';
+    ui.stage.innerHTML =
+      '<div class="word flank"></div><div class="btns"><button data-choice="L">←</button><button data-choice="R">→</button></div>';
+    const word = ui.stage.querySelector('.word');
+    const btns = ui.stage.querySelector('.btns');
+    const rts = [];
+    let errors = 0;
+    for (let i = 0; i < N; i++) {
+      ui.hud(`Flanker · ${i + 1}/${N}`);
+      const target = Math.random() < 0.5 ? 'L' : 'R';
+      const other = target === 'L' ? 'R' : 'L';
+      const ch = (d) => (d === 'L' ? '←' : '→');
+      const flank = i % 2 === 0 ? target : other; // half congruent, half incongruent
+      word.textContent = '';
+      await sleep(rand(400, 800));
+      word.textContent = ch(flank) + ch(flank) + ch(target) + ch(flank) + ch(flank);
+      const t0 = await frame();
+      const tap = await nextTap(btns, 2500);
+      if (tap && tap.target.dataset && tap.target.dataset.choice === target) rts.push(tap.t - t0);
+      else errors++;
+    }
+    return { flanker_rt: median(rts) ?? 2500, flanker_err: errors };
+  }
+
+  // --- Task switching (multitasking) -------------------------------------------
+  async function taskSwitch(ui) {
+    const N = 24;
+    const digits = [1, 2, 3, 4, 6, 7, 8, 9];
+    ui.stage.className = 'stage idle';
+    ui.stage.innerHTML =
+      '<div class="cue"></div><div class="word"></div><div class="btns"><button data-choice="a"></button><button data-choice="b"></button></div>';
+    const cue = ui.stage.querySelector('.cue');
+    const word = ui.stage.querySelector('.word');
+    const btns = ui.stage.querySelector('.btns');
+    const [bA, bB] = btns.querySelectorAll('button');
+    const rts = [];
+    let errors = 0;
+    let rule = Math.random() < 0.5 ? 'parity' : 'size';
+    for (let i = 0; i < N; i++) {
+      ui.hud(`Task switch · ${i + 1}/${N}`);
+      if (i > 0 && Math.random() < 0.5) rule = rule === 'parity' ? 'size' : 'parity'; // ~half the trials switch
+      const n = digits[Math.floor(Math.random() * digits.length)];
+      const answer = rule === 'parity' ? (n % 2 ? 'a' : 'b') : n < 5 ? 'a' : 'b';
+      word.textContent = '';
+      cue.textContent = '';
+      await sleep(400);
+      cue.textContent = rule === 'parity' ? 'ODD or EVEN?' : 'LOW (1–4) or HIGH (6–9)?';
+      bA.textContent = rule === 'parity' ? 'odd' : 'low';
+      bB.textContent = rule === 'parity' ? 'even' : 'high';
+      word.textContent = n;
+      const t0 = await frame();
+      const tap = await nextTap(btns, 3000);
+      if (tap && tap.target.dataset && tap.target.dataset.choice === answer) rts.push(tap.t - t0);
+      else errors++;
+    }
+    return { switch_rt: median(rts) ?? 3000, switch_err: errors };
   }
 
   const list = [
@@ -136,6 +197,10 @@
       text: 'Tap when you see green TAP. Do NOT tap when you see red DON’T.' },
     { id: 'stroop', name: 'Stroop', run: stroop,
       text: 'A color word appears. Tap the button for the INK color, ignoring what the word says.' },
+    { id: 'flanker', name: 'Flanker', run: flanker,
+      text: 'Five arrows appear. Tap the direction the MIDDLE arrow points, ignoring the others.' },
+    { id: 'switch', name: 'Task switch', run: taskSwitch,
+      text: 'A number appears with a question that keeps changing: odd/even, or low/high. Answer the current question.' },
   ];
 
   // Shows intro, waits for a tap on Start, then runs the test.

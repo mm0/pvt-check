@@ -12,7 +12,14 @@
     { k: 'gng_err', label: 'Go/No-Go errors', unit: '', rel: false },
     { k: 'stroop_rt', label: 'Stroop time', unit: 'ms', rel: true },
     { k: 'stroop_err', label: 'Stroop errors', unit: '', rel: false },
+    { k: 'flanker_rt', label: 'Flanker time', unit: 'ms', rel: true },
+    { k: 'flanker_err', label: 'Flanker errors', unit: '', rel: false },
+    { k: 'switch_rt', label: 'Task-switch time', unit: 'ms', rel: true },
+    { k: 'switch_err', label: 'Task-switch errors', unit: '', rel: false },
   ];
+  // Calibration sessions recorded before a metric existed can't build a baseline for it, so they don't count.
+  const calSessions = (dev, sessions) =>
+    sessions.filter((s) => s.device === dev && s.calibration && METRICS.every((m) => s.metrics[m.k] != null));
 
   // --- storage (falls back to memory if localStorage is blocked) ------------
   let mem = { sessions: [] };
@@ -33,7 +40,7 @@
   const device = () => (matchMedia('(pointer: coarse)').matches ? 'touch' : 'mouse');
 
   function baselineFor(dev, sessions) {
-    const cal = sessions.filter((s) => s.device === dev && s.calibration);
+    const cal = calSessions(dev, sessions);
     if (cal.length < CAL_N) return null;
     const base = {};
     for (const m of METRICS) {
@@ -59,7 +66,7 @@
   function renderHome(notice = '') {
     const d = load();
     const dev = device();
-    const calDone = d.sessions.filter((s) => s.device === dev && s.calibration).length;
+    const calDone = calSessions(dev, d.sessions).length;
     const last = d.sessions[d.sessions.length - 1];
     let html = `<div>Device: <b>${dev}</b></div>`;
     if (calDone < CAL_N) {
@@ -85,6 +92,7 @@
     el.textContent = '';
     if (!window.Sync) { el.textContent = 'Cloud sync unavailable (using this device only).'; return; }
     const name = Sync.name();
+    $('#start').disabled = !name; // a name is required before starting (syncs automatically)
     if (name) {
       el.append(`Syncing as "${name}"${syncMsg ? ' · ' + syncMsg : ''} `);
       const btn = document.createElement('button');
@@ -93,12 +101,15 @@
       el.append(btn);
     } else {
       // No name yet: ask for one. Anyone who types the same name shares the same data.
+      el.append('Enter a name to get started. Use the same name on other devices to share your history.');
+      el.append(document.createElement('br'));
       const input = document.createElement('input');
-      input.placeholder = 'Your name (to sync devices)';
+      input.placeholder = 'Your name';
       input.maxLength = 32;
       input.autocapitalize = 'none';
       const btn = document.createElement('button');
-      btn.textContent = 'Sync';
+      btn.className = 'primary';
+      btn.textContent = 'Continue';
       btn.onclick = () => {
         try { Sync.setName(input.value); } catch (e) { $('#notice').textContent = e.message; return; }
         syncNow();
@@ -132,7 +143,7 @@
   function renderResult(session, base) {
     let html;
     if (session.calibration) {
-      const n = load().sessions.filter((s) => s.device === session.device && s.calibration).length;
+      const n = calSessions(session.device, load().sessions).length;
       html = `<h2>Calibration ${n}/${CAL_N} saved</h2>
         <p class="muted">${n < CAL_N ? 'Keep going while rested.' : 'Baseline is now set. Future checks are compared to it.'}</p>`;
     } else {
@@ -191,7 +202,7 @@
   // --- session flow -------------------------------------------------------------
   let running = false;
   async function runSession() {
-    if (running) return;
+    if (running || (window.Sync && !Sync.name())) return;
     running = true;
     show('test');
     const ui = { stage: $('#stage'), hud: (t) => ($('#hud').textContent = t) };
@@ -200,7 +211,7 @@
       for (const t of Tests.list) Object.assign(metrics, await Tests.runTest(t, ui));
       const d = load();
       const dev = device();
-      const calibration = d.sessions.filter((s) => s.device === dev && s.calibration).length < CAL_N;
+      const calibration = calSessions(dev, d.sessions).length < CAL_N;
       const base = calibration ? null : baselineFor(dev, d.sessions);
       const session = { ts: Date.now(), device: dev, calibration, metrics, composite: base ? composite(metrics, base) : null };
       d.sessions.push(session);
