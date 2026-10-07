@@ -75,6 +75,58 @@
     $('#status').innerHTML = html;
     $('#notice').textContent = notice || (storageOK ? '' : 'Storage is blocked in this browser, so results will not be saved after you close the page.');
     show('home');
+    renderAuth();
+  }
+
+  // --- cloud sync (optional; see sync.js) -----------------------------------
+  let syncMsg = '';
+  function renderAuth() {
+    const el = $('#auth');
+    el.textContent = '';
+    if (!window.Sync) { el.textContent = 'Cloud sync unavailable (using this device only).'; return; }
+    const name = Sync.name();
+    if (name) {
+      el.append(`Syncing as "${name}"${syncMsg ? ' · ' + syncMsg : ''} `);
+      const btn = document.createElement('button');
+      btn.textContent = 'Change name';
+      btn.onclick = () => { Sync.setName(null); syncMsg = ''; renderAuth(); };
+      el.append(btn);
+    } else {
+      // No name yet: ask for one. Anyone who types the same name shares the same data.
+      const input = document.createElement('input');
+      input.placeholder = 'Your name (to sync devices)';
+      input.maxLength = 32;
+      input.autocapitalize = 'none';
+      const btn = document.createElement('button');
+      btn.textContent = 'Sync';
+      btn.onclick = () => {
+        try { Sync.setName(input.value); } catch (e) { $('#notice').textContent = e.message; return; }
+        syncNow();
+      };
+      input.onkeydown = (e) => { if (e.key === 'Enter') btn.click(); };
+      el.append(input, ' ', btn);
+    }
+  }
+
+  // Merge local and remote sessions (union by timestamp) and push anything the cloud is missing.
+  async function syncNow() {
+    if (!window.Sync || !Sync.name()) return renderAuth();
+    try {
+      syncMsg = 'syncing…';
+      renderAuth();
+      const remote = await Sync.fetchAll();
+      const d = load();
+      const have = new Set(remote.map((s) => s.ts));
+      const local = d.sessions.filter((s) => !have.has(s.ts));
+      await Promise.all(local.map((s) => Sync.push(s)));
+      d.sessions = [...remote, ...local].sort((a, b) => a.ts - b.ts);
+      save(d);
+      syncMsg = 'synced';
+    } catch (e) {
+      syncMsg = 'sync failed (' + (e.code || e.message) + ')';
+    }
+    if (!$('#home').hidden) renderHome();
+    else renderAuth();
   }
 
   function renderResult(session, base) {
@@ -153,6 +205,7 @@
       const session = { ts: Date.now(), device: dev, calibration, metrics, composite: base ? composite(metrics, base) : null };
       d.sessions.push(session);
       save(d);
+      if (window.Sync && Sync.name()) Sync.push(session).catch(() => { syncMsg = 'sync failed, will retry next visit'; });
       renderResult(session, calibration ? null : base);
     } catch (e) {
       if (e.message !== 'aborted') throw e;
@@ -168,8 +221,14 @@
   $('#showHistory').onclick = renderHistory;
   $('#historyBack').onclick = () => renderHome();
   $('#exportCsv').onclick = exportCsv;
-  $('#reset').onclick = () => {
-    if (confirm('Delete all sessions and your baseline?')) { save({ sessions: [] }); renderHistory(); }
+  $('#reset').onclick = async () => {
+    if (!confirm('Delete all sessions and your baseline' + (window.Sync && Sync.name() ? ', including the synced copy' : '') + '?')) return;
+    save({ sessions: [] });
+    if (window.Sync && Sync.name()) {
+      try { await Sync.deleteAll(); } catch (e) { $('#notice').textContent = 'Could not delete synced copy: ' + (e.code || e.message); }
+    }
+    renderHistory();
   };
   renderHome();
+  if (window.Sync) syncNow(); else addEventListener('sync-ready', syncNow, { once: true });
 })();
